@@ -1,0 +1,66 @@
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+log/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Docker
+.dockerignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Config files (generated at runtime)
+config/*.conf
+config/*.pem
+config/*.key
+config/*.crt
+
+# Data directories (for local testing)
+data/
+storage/
+mail/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Railway
+.railway/
