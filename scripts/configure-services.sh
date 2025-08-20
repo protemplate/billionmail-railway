@@ -321,6 +321,11 @@ server {
     listen [::]:80 default_server;
     server_name ${BILLIONMAIL_HOSTNAME};
     
+    # Increase buffer sizes for large headers (Railway compatibility)
+    client_header_buffer_size 4k;
+    large_client_header_buffers 4 16k;
+    client_max_body_size 50M;
+    
     root /var/www/roundcube;
     index index.php index.html;
     
@@ -361,6 +366,11 @@ server {
     listen 8080;
     listen [::]:8080;
     server_name _;
+    
+    # Increase buffer sizes for large headers (Railway compatibility)
+    client_header_buffer_size 4k;
+    large_client_header_buffers 4 16k;
+    client_max_body_size 50M;
     
     location / {
         proxy_pass http://[::1]:8080;
