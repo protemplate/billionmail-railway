@@ -344,13 +344,11 @@ server {
         deny all;
     }
     
-    # BillionMail API proxy
-    location /api/ {
-        proxy_pass http://[::1]:8080/;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+    # Mail server status page (can be customized later)
+    location /status {
+        access_log off;
+        return 200 "BillionMail Server Status: OK";
+        add_header Content-Type text/plain;
     }
     
     # Health check endpoint
@@ -361,25 +359,8 @@ server {
     }
 }
 
-# Admin interface
-server {
-    listen 8080;
-    listen [::]:8080;
-    server_name _;
-    
-    # Increase buffer sizes for large headers (Railway compatibility)
-    client_header_buffer_size 4k;
-    large_client_header_buffers 4 16k;
-    client_max_body_size 50M;
-    
-    location / {
-        proxy_pass http://[::1]:8080;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
+# Mail administration via Roundcube (no separate admin interface needed)
+# Users can access mail management through the main Roundcube webmail interface
 EOF
 
 echo "[configure] Configuring Roundcube..."

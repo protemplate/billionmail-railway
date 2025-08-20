@@ -127,23 +127,8 @@ RUN chmod +x /usr/local/bin/billionmail/*.sh && \
     ls -la /usr/local/bin/billionmail/ && \
     test -f /usr/local/bin/billionmail/start.sh || (echo "ERROR: start.sh not found!" && exit 1)
 
-# Set up Python virtual environment for BillionMail
-RUN python3 -m venv /opt/billionmail/venv && \
-    /opt/billionmail/venv/bin/pip install --upgrade pip && \
-    /opt/billionmail/venv/bin/pip install \
-        flask \
-        flask-cors \
-        flask-jwt-extended \
-        flask-migrate \
-        flask-sqlalchemy \
-        psycopg2-binary \
-        redis \
-        celery \
-        gunicorn \
-        python-dotenv \
-        requests \
-        cryptography \
-        email-validator
+# BillionMail repository cloned above contains configuration scripts
+# The actual mail services are provided by Postfix, Dovecot, Rspamd, and Roundcube
 
 # Configure nginx for Railway
 RUN rm -f /etc/nginx/sites-enabled/default && \
