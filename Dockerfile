@@ -96,11 +96,17 @@ RUN groupadd -g 5000 vmail && \
 
 # Copy configuration files
 COPY supervisord.conf /etc/supervisor/supervisord.conf
-COPY scripts/ /app/scripts/
-COPY config/ /app/config/
 
-# Make scripts executable
-RUN chmod +x /app/scripts/*.sh
+# Copy all scripts to the app directory
+COPY scripts/* /app/scripts/
+
+# Create config directory (config files will be generated at runtime)
+RUN mkdir -p /app/config
+
+# Make scripts executable and verify they exist
+RUN chmod +x /app/scripts/*.sh && \
+    ls -la /app/scripts/ && \
+    test -f /app/scripts/start.sh || (echo "ERROR: start.sh not found!" && exit 1)
 
 # Set up Python virtual environment for BillionMail
 RUN python3 -m venv /opt/billionmail/venv && \
