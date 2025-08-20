@@ -146,8 +146,5 @@ EXPOSE 25 587 465 143 993 110 995
 # Admin interface
 EXPOSE 8080
 
-# Volume for persistent data
-VOLUME ["/app/storage"]
-
 # Start with supervisord
 CMD ["/app/scripts/start.sh"]
