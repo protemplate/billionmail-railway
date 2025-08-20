@@ -20,6 +20,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     netcat-openbsd \
     jq \
     gettext-base \
+    # Database client
+    postgresql-client \
+    # SASL authentication (REQUIRED for mail authentication)
+    sasl2-bin \
+    libsasl2-modules \
+    # DNS utilities (REQUIRED for mail routing)
+    dnsutils \
+    # Additional mail server requirements
+    postfix-pcre \
+    dovecot-ldap \
+    # System utilities
+    rsyslog \
+    cron \
+    telnet \
+    ipset \
+    procps \
+    # Rspamd dependencies
+    lua-cjson \
+    nano \
     # Build tools
     build-essential \
     python3 \
