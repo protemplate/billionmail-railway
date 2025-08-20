@@ -97,8 +97,8 @@ RUN groupadd -g 5000 vmail && \
 # Copy configuration files
 COPY supervisord.conf /etc/supervisor/supervisord.conf
 
-# Copy all scripts to the app directory
-COPY scripts/* /app/scripts/
+# Copy scripts directory (this preserves directory structure)
+COPY scripts /app/scripts
 
 # Create config directory (config files will be generated at runtime)
 RUN mkdir -p /app/config
