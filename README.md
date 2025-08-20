@@ -1,8 +1,6 @@
-# BillionMail Railway Template
+# BillionMail Railway Deployment
 
-Deploy [BillionMail](https://github.com/aaPanel/BillionMail), a fully self-hosted email marketing platform and mail server, on Railway with one click.
-
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/billionmail)
+Deploy [BillionMail](https://github.com/aaPanel/BillionMail), a fully self-hosted email marketing platform and mail server, on Railway.
 
 ## Features
 
@@ -37,56 +35,82 @@ You'll need a domain name with the ability to configure DNS records:
 
 ## Deployment
 
-### Method 1: Deploy from Template (Recommended)
+### Prerequisites
 
-1. Click the "Deploy on Railway" button above
-2. Connect your GitHub account
-3. Railway will create:
-   - PostgreSQL service
-   - Redis service
-   - BillionMail service (from this repository)
-4. Configure environment variables in Railway dashboard
-
-### Method 2: Manual Deployment
-
-1. Fork this repository
+1. Fork this repository to your GitHub account
 2. Create a new Railway project
-3. Add PostgreSQL and Redis services
-4. Add a new service from your forked GitHub repository
-5. Railway will automatically detect the `railway.toml` configuration
+3. Add the following services to your Railway project:
+   - **PostgreSQL** - Add from Railway's database templates
+   - **Redis** - Add from Railway's database templates
+
+### Deploy BillionMail
+
+1. In your Railway project, click "New Service"
+2. Select "GitHub Repo" 
+3. Choose your forked repository
+4. Railway will automatically detect the `railway.toml` configuration and start building
+5. **Important**: The deployment will fail initially because environment variables need to be configured
 
 ## Configuration
 
-### Important Note on railway.toml
+After deployment, configure the environment variables in Railway dashboard:
 
-The `railway.toml` file contains only Railway-specific build and deploy configuration. Environment variables are NOT set in railway.toml - they must be configured in the Railway dashboard or through the template system.
+### Step 1: Navigate to Variables
 
-### Required Environment Variables
+1. Click on your BillionMail service in Railway
+2. Go to the "Variables" tab
+3. Add the following environment variables
 
-Set these in your Railway dashboard's Variables tab:
+### Step 2: Required Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `BILLIONMAIL_HOSTNAME` | Your mail server domain | `mail.example.com` |
-| `ADMIN_EMAIL` | Administrator email | `admin@example.com` |
-| `ADMIN_PASSWORD` | Admin password (auto-generated if using `${{secret()}}`) | - |
+These MUST be configured for BillionMail to start:
 
-### Automatic Variables
+| Variable | Description | Value |
+|----------|-------------|--------|
+| `BILLIONMAIL_HOSTNAME` | Your mail server domain | `mail.yourdomain.com` |
+| `ADMIN_EMAIL` | Administrator email address | `admin@yourdomain.com` |
+| `ADMIN_PASSWORD` | Admin password | Your secure password or `${{secret()}}` |
 
-When you connect PostgreSQL and Redis services in Railway, these variables are automatically provided through service references:
+### Step 3: Database Connection
 
-- `DATABASE_URL` - PostgreSQL connection string (from `${{Postgres.DATABASE_URL}}`)
-- `REDIS_URL` - Redis connection string (from `${{Redis.REDIS_URL}}`)
-- `RAILWAY_PUBLIC_DOMAIN` - Your Railway public domain
-- `PORT` - Application port
+Add these variables using Railway's reference variables (replace `Postgres` with your PostgreSQL service name if different):
 
-### Template Variables
+| Variable | Value |
+|----------|--------|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `POSTGRES_HOST` | `${{Postgres.RAILWAY_PRIVATE_DOMAIN}}` |
+| `POSTGRES_PORT` | `${{Postgres.PGPORT}}` |
+| `POSTGRES_DB` | `${{Postgres.PGDATABASE}}` |
+| `POSTGRES_USER` | `${{Postgres.PGUSER}}` |
+| `POSTGRES_PASSWORD` | `${{Postgres.PGPASSWORD}}` |
 
-If deploying via Railway template, all environment variables are pre-configured in `railway.json` with proper references to PostgreSQL and Redis services.
+### Step 4: Redis Connection
+
+Add these variables using Railway's reference variables (replace `Redis` with your Redis service name if different):
+
+| Variable | Value |
+|----------|--------|
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
+| `REDIS_HOST` | `${{Redis.RAILWAY_PRIVATE_DOMAIN}}` |
+| `REDIS_PORT` | `${{Redis.REDISPORT}}` |
+| `REDIS_PASSWORD` | `${{Redis.REDISPASSWORD}}` |
+
+### Step 5: Security Keys (Recommended)
+
+| Variable | Value | Description |
+|----------|--------|-------------|
+| `SECRET_KEY` | `${{secret()}}` | Auto-generates secure key |
+| `ROUNDCUBE_DES_KEY` | `${{secret(24)}}` | Auto-generates 24-char key |
+
+### Step 6: Redeploy
+
+After adding all variables, redeploy your service:
+1. Click "Deploy" in the Railway dashboard
+2. The service should now start successfully
 
 ### Optional Configuration
 
-See `.env.example` for all available configuration options. These can be added in the Railway dashboard's Variables tab.
+For additional configuration options, see `.env.example`. All variables listed there can be added to Railway's Variables tab.
 
 ## Post-Deployment Setup
 
