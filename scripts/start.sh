@@ -138,11 +138,11 @@ main() {
     
     # Initialize database
     echo "[start] Initializing database..."
-    /app/scripts/init-db.sh
+    /usr/local/bin/billionmail/init-db.sh
     
     # Configure services
     echo "[start] Configuring services..."
-    /app/scripts/configure-services.sh
+    /usr/local/bin/billionmail/configure-services.sh
     
     # Initialize Postfix
     echo "[start] Initializing Postfix..."

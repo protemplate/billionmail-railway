@@ -97,16 +97,16 @@ RUN groupadd -g 5000 vmail && \
 # Copy configuration files
 COPY supervisord.conf /etc/supervisor/supervisord.conf
 
-# Copy scripts directory (this preserves directory structure)
-COPY scripts /app/scripts
+# Copy scripts to system location (not affected by volume mounts)
+COPY scripts /usr/local/bin/billionmail
 
-# Create config directory (config files will be generated at runtime)
-RUN mkdir -p /app/config
+# Create app directories (config files will be generated at runtime)
+RUN mkdir -p /app/config /app/storage
 
 # Make scripts executable and verify they exist
-RUN chmod +x /app/scripts/*.sh && \
-    ls -la /app/scripts/ && \
-    test -f /app/scripts/start.sh || (echo "ERROR: start.sh not found!" && exit 1)
+RUN chmod +x /usr/local/bin/billionmail/*.sh && \
+    ls -la /usr/local/bin/billionmail/ && \
+    test -f /usr/local/bin/billionmail/start.sh || (echo "ERROR: start.sh not found!" && exit 1)
 
 # Set up Python virtual environment for BillionMail
 RUN python3 -m venv /opt/billionmail/venv && \
@@ -142,7 +142,7 @@ ENV BIND_ADDRESS=:: \
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
-    CMD /app/scripts/health-check.sh || exit 1
+    CMD /usr/local/bin/billionmail/health-check.sh || exit 1
 
 # Expose ports
 # Web interface
@@ -153,4 +153,4 @@ EXPOSE 25 587 465 143 993 110 995
 EXPOSE 8080
 
 # Start with supervisord (using bash explicitly)
-CMD ["/bin/bash", "/app/scripts/start.sh"]
+CMD ["/bin/bash", "/usr/local/bin/billionmail/start.sh"]
