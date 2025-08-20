@@ -152,5 +152,5 @@ EXPOSE 25 587 465 143 993 110 995
 # Admin interface
 EXPOSE 8080
 
-# Start with supervisord
-CMD ["/app/scripts/start.sh"]
+# Start with supervisord (using bash explicitly)
+CMD ["/bin/bash", "/app/scripts/start.sh"]
