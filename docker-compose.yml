@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: billionmail-postgres
+    environment:
+      POSTGRES_USER: billionmail
+      POSTGRES_PASSWORD: billionmail_password
+      POSTGRES_DB: billionmail
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - billionmail-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: billionmail-redis
+    command: redis-server --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    networks:
+      - billionmail-network
+    restart: unless-stopped
+
+  billionmail-core:
+    image: billionmail/core:4.2.1
+    container_name: billionmail-core
+    environment:
+      TZ: UTC
+      FAIL2BAN_INIT: y
+      BILLIONMAIL_HOSTNAME: mail.localhost
+      ADMIN_EMAIL: admin@localhost
+      DBNAME: billionmail
+      DBUSER: billionmail
+      DBPASS: billionmail_password
+      DBHOST: postgres
+      DBPORT: 5432
+      REDISPASS: redis_password
+      REDISHOST: redis
+      REDISPORT: 6379
+    volumes:
+      - billionmail_www:/data/www
+      - billionmail_ssl:/data/ssl
+      - billionmail_logs:/data/log
+    ports:
+      - "8080:80"
+      - "8443:443"
+    networks:
+      - billionmail-network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  postfix:
+    image: billionmail/postfix:4.2.1
+    container_name: billionmail-postfix
+    environment:
+      TZ: UTC
+      BILLIONMAIL_HOSTNAME: mail.localhost
+      DBNAME: billionmail
+      DBUSER: billionmail
+      DBPASS: billionmail_password
+      DBHOST: postgres
+      DBPORT: 5432
+    volumes:
+      - postfix_spool:/var/spool/postfix
+      - postfix_logs:/data/log
+    ports:
+      - "25:25"
+      - "587:587"
+      - "465:465"
+    networks:
+      - billionmail-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  dovecot:
+    image: billionmail/dovecot:4.2.1
+    container_name: billionmail-dovecot
+    environment:
+      TZ: UTC
+      BILLIONMAIL_HOSTNAME: mail.localhost
+      DBNAME: billionmail
+      DBUSER: billionmail
+      DBPASS: billionmail_password
+      DBHOST: postgres
+      DBPORT: 5432
+    volumes:
+      - dovecot_mail:/var/vmail
+      - dovecot_logs:/data/log
+    ports:
+      - "143:143"
+      - "993:993"
+      - "110:110"
+      - "995:995"
+    networks:
+      - billionmail-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  rspamd:
+    image: billionmail/rspamd:4.2.1
+    container_name: billionmail-rspamd
+    environment:
+      TZ: UTC
+      REDISPASS: redis_password
+      REDISHOST: redis
+      REDISPORT: 6379
+    volumes:
+      - rspamd_data:/var/lib/rspamd
+      - rspamd_logs:/data/log
+    ports:
+      - "11333:11333"  # Rspamd web interface
+    networks:
+      - billionmail-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+networks:
+  billionmail-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  billionmail_www:
+  billionmail_ssl:
+  billionmail_logs:
+  postfix_spool:
+  postfix_logs:
+  dovecot_mail:
+  dovecot_logs:
+  rspamd_data:
+  rspamd_logs:

@@ -1,11 +1,108 @@
+# Railway configuration for BillionMail
+# This configuration sets up the mail server with all required services
+
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Let the Dockerfile CMD handle startup
-# startCommand = "/app/scripts/start.sh"
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 3
+startCommand = "/usr/local/bin/unified-start.sh"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Service configuration
+[[services]]
+name = "billionmail"
+# Internal port that the service listens on
+internalPort = 80
+
+# TCP Proxy configurations for mail services
+# Note: Railway will generate unique domain:port combinations for each
+# You'll need to configure these in the Railway dashboard after deployment
+
+# SMTP Services
+[[services.tcp]]
+name = "smtp"
+port = 25
+
+[[services.tcp]]
+name = "smtp-submission"
+port = 587
+
+[[services.tcp]]
+name = "smtps"
+port = 465
+
+# IMAP Services
+[[services.tcp]]
+name = "imap"
+port = 143
+
+[[services.tcp]]
+name = "imaps"
+port = 993
+
+# POP3 Services
+[[services.tcp]]
+name = "pop3"
+port = 110
+
+[[services.tcp]]
+name = "pop3s"
+port = 995
+
+# Environment variable schema
+[variables]
+# Database configuration
+DATABASE_URL = { required = true, description = "PostgreSQL connection string" }
+REDIS_URL = { required = true, description = "Redis connection string" }
+
+# Domain configuration
+DOMAIN = { required = true, description = "Primary mail domain (e.g., mail.example.com)" }
+HOSTNAME = { default = "${{DOMAIN}}", description = "Mail server hostname" }
+
+# Security
+SECRET_KEY = { required = true, description = "Secret key for encryption (generate with: openssl rand -hex 32)" }
+ADMIN_EMAIL = { required = true, description = "Administrator email address" }
+ADMIN_PASSWORD = { required = true, description = "Admin panel password" }
+
+# Service ports (internal binding)
+HTTP_PORT = { default = "80", description = "Internal HTTP port" }
+HTTPS_PORT = { default = "443", description = "Internal HTTPS port" }
+
+# Mail service configuration
+SMTP_PORT = { default = "25", description = "SMTP port" }
+SUBMISSION_PORT = { default = "587", description = "SMTP submission port" }
+SMTPS_PORT = { default = "465", description = "SMTP over SSL port" }
+IMAP_PORT = { default = "143", description = "IMAP port" }
+IMAPS_PORT = { default = "993", description = "IMAP over SSL port" }
+POP3_PORT = { default = "110", description = "POP3 port" }
+POP3S_PORT = { default = "995", description = "POP3 over SSL port" }
+
+# Optional configuration
+TZ = { default = "UTC", description = "Timezone" }
+MAX_MESSAGE_SIZE = { default = "50M", description = "Maximum message size" }
+SPAM_THRESHOLD = { default = "5.0", description = "SpamAssassin threshold" }
+ENABLE_FAIL2BAN = { default = "true", description = "Enable Fail2ban protection" }
+ENABLE_RSPAMD = { default = "true", description = "Enable Rspamd spam filtering" }
+
+# SSL Configuration
+SSL_TYPE = { default = "letsencrypt", description = "SSL type: letsencrypt, manual, or self-signed" }
+SSL_CERT_PATH = { default = "/data/ssl/cert.pem", description = "Path to SSL certificate" }
+SSL_KEY_PATH = { default = "/data/ssl/privkey.pem", description = "Path to SSL private key" }
+
+# Backup configuration
+BACKUP_ENABLED = { default = "true", description = "Enable automatic backups" }
+BACKUP_RETENTION_DAYS = { default = "30", description = "Backup retention period in days" }
+BACKUP_SCHEDULE = { default = "0 2 * * *", description = "Backup schedule (cron format)" }
+
+# Performance tuning
+WORKER_PROCESSES = { default = "auto", description = "Number of worker processes" }
+WORKER_CONNECTIONS = { default = "1024", description = "Maximum worker connections" }
+CLIENT_MAX_BODY_SIZE = { default = "50M", description = "Maximum request body size" }
+
+# Monitoring
+ENABLE_MONITORING = { default = "true", description = "Enable monitoring endpoints" }
+METRICS_PORT = { default = "9090", description = "Metrics endpoint port" }

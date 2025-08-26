@@ -1,310 +1,281 @@
-# BillionMail Railway Deployment
+# BillionMail Railway Deployment Guide
 
-Deploy [BillionMail](https://github.com/aaPanel/BillionMail), a fully self-hosted email marketing platform and mail server, on Railway.
+Deploy [BillionMail](https://github.com/aaPanel/BillionMail) email marketing platform on Railway using a unified container optimized for Railway's single-volume limitation.
 
-## Features
+## About BillionMail
 
-- **Complete Email Server**: SMTP, IMAP, POP3 support with Postfix and Dovecot
-- **Webmail Interface**: Roundcube webmail for easy email access
-- **Marketing Platform**: Send newsletters and transactional emails
-- **Anti-Spam**: Rspamd for spam filtering
-- **Security**: DKIM, SPF, and DMARC support
-- **Web Admin**: Management interface for email accounts and campaigns
-- **Railway Optimized**: Configured for Railway's infrastructure with PostgreSQL and Redis
+BillionMail is a comprehensive, self-hosted email marketing platform that includes:
+- **Complete Mail Server**: SMTP, IMAP, POP3 with Postfix and Dovecot
+- **Email Marketing**: Campaign management, newsletters, analytics
+- **Webmail Interface**: Full-featured webmail client
+- **Spam Protection**: Advanced filtering with Rspamd
+- **Privacy-First**: Completely self-hosted solution
+- **Unlimited Sending**: No monthly limits or restrictions
 
 ## Prerequisites
 
-### Railway Services
+- Railway account with active subscription
+- Custom domain for mail services
+- GitHub account (for repository-based deployments)
 
-Before deploying BillionMail, you need to set up these services in your Railway project:
+> **Important**: Railway only allows one volume per service. This deployment uses a unified container that consolidates all BillionMail services to work with a single `/data` volume.
 
-1. **PostgreSQL Database** - Add from Railway template
-2. **Redis Cache** - Add from Railway template
+## Deployment Instructions
 
-These services will be automatically connected to BillionMail using Railway's reference variables.
+This deployment uses a unified container approach that combines all BillionMail services into a single deployable unit, optimized for Railway's infrastructure constraints.
 
-### Domain Requirements
+### Step 1: Create a New Railway Project
 
-You'll need a domain name with the ability to configure DNS records:
+1. Log into [Railway](https://railway.app)
+2. Click "New Project"
+3. Name your project "BillionMail"
 
-- **A Record**: Point your mail subdomain (e.g., `mail.yourdomain.com`) to Railway's IP
-- **MX Record**: Point to your mail subdomain
-- **SPF Record**: `v=spf1 a mx ip4:YOUR_RAILWAY_IP ~all`
-- **DKIM Record**: Will be provided after deployment
-- **DMARC Record**: `v=DMARC1; p=quarantine; rua=mailto:admin@yourdomain.com`
+### Step 2: Deploy PostgreSQL Database
 
-## Deployment
+1. Click "New" → "Database" → "Add PostgreSQL"
+2. Note the connection details from the Variables tab:
+   - `DATABASE_URL`
+   - `PGHOST`
+   - `PGPORT`
+   - `PGUSER`
+   - `PGPASSWORD`
+   - `PGDATABASE`
 
-### Prerequisites
+### Step 3: Deploy Redis Cache
 
-1. Fork this repository to your GitHub account
-2. Create a new Railway project
-3. Add the following services to your Railway project:
-   - **PostgreSQL** - Add from Railway's database templates
-   - **Redis** - Add from Railway's database templates
+1. Click "New" → "Database" → "Add Redis"
+2. Note the `REDIS_URL` from the Variables tab
 
-### Deploy BillionMail
+### Step 4: Deploy BillionMail Unified Container
 
-1. In your Railway project, click "New Service"
-2. Select "GitHub Repo" 
-3. Choose your forked repository
-4. Railway will automatically detect the `railway.toml` configuration and start building
-5. **Important**: The deployment will fail initially because environment variables need to be configured
+1. Click "New" → "GitHub Repo" → Connect this repository
+2. Or use "Docker Image" with your custom build
+3. Add environment variables:
+   ```
+   HOSTNAME=mail.yourdomain.com
+   DOMAIN=yourdomain.com
+   ADMIN_EMAIL=admin@yourdomain.com
+   ADMIN_PASSWORD=YourSecurePassword
+   SECRET_KEY=YourSecretKey  # Generate with: openssl rand -hex 32
+   TZ=UTC
+   DATABASE_URL=${{DATABASE_URL}}
+   REDIS_URL=${{REDIS_URL}}
+   DB_INIT=true
+   ```
+4. Add volume in Settings → Volumes:
+   - Mount path: `/data`
+5. Configure networking (see Network Configuration section below)
+6. Generate domain and note the URL
 
-## Configuration
+## Network Configuration on Railway
 
-After deployment, configure the environment variables in Railway dashboard:
+### Important: Railway Port Limitations
 
-### Step 1: Navigate to Variables
+Railway has specific networking constraints for mail servers:
 
-1. Click on your BillionMail service in Railway
-2. Go to the "Variables" tab
-3. Add the following environment variables
+1. **HTTP/HTTPS Traffic**: Works normally through Railway domains
+2. **Mail Ports (SMTP/IMAP/POP3)**: Require TCP Proxy configuration
 
-### Step 2: Required Variables
+### Setting Up TCP Proxies
 
-These MUST be configured for BillionMail to start:
+After deployment, configure TCP proxies in the Railway dashboard:
 
-| Variable | Description | Value |
-|----------|-------------|--------|
-| `BILLIONMAIL_HOSTNAME` | Your mail server domain | `mail.yourdomain.com` |
-| `ADMIN_EMAIL` | Administrator email address | `admin@yourdomain.com` |
-| `ADMIN_PASSWORD` | Admin password | Your secure password or `${{secret()}}` |
+1. Go to your BillionMail service → Settings → Networking
+2. Under "TCP Proxy", add configurations for each mail port:
 
-### Step 3: Database Connection
+| Service | Internal Port | Purpose |
+|---------|--------------|---------|
+| SMTP | 25 | Standard mail transfer |
+| SMTP Submission | 587 | Client mail submission |
+| SMTPS | 465 | Secure SMTP |
+| IMAP | 143 | Mail retrieval |
+| IMAPS | 993 | Secure IMAP |
+| POP3 | 110 | Mail download |
+| POP3S | 995 | Secure POP3 |
 
-Add these variables using Railway's reference variables (replace `Postgres` with your PostgreSQL service name if different):
+3. Railway will generate unique endpoints for each TCP proxy:
+   - Example: `tcp-proxy-abc123.up.railway.app:12345`
+   - Note these endpoints for mail client configuration
 
-| Variable | Value |
-|----------|--------|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `POSTGRES_HOST` | `${{Postgres.RAILWAY_PRIVATE_DOMAIN}}` |
-| `POSTGRES_PORT` | `${{Postgres.PGPORT}}` |
-| `POSTGRES_DB` | `${{Postgres.PGDATABASE}}` |
-| `POSTGRES_USER` | `${{Postgres.PGUSER}}` |
-| `POSTGRES_PASSWORD` | `${{Postgres.PGPASSWORD}}` |
+### Mail Client Configuration with Railway
 
-### Step 4: Redis Connection
+Due to Railway's TCP proxy system, mail clients must use Railway-generated endpoints:
 
-Add these variables using Railway's reference variables (replace `Redis` with your Redis service name if different):
+**IMAP Settings:**
+- Server: `[railway-generated-domain]`
+- Port: `[railway-generated-port]`
+- Security: SSL/TLS
 
-| Variable | Value |
-|----------|--------|
-| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
-| `REDIS_HOST` | `${{Redis.RAILWAY_PRIVATE_DOMAIN}}` |
-| `REDIS_PORT` | `${{Redis.REDISPORT}}` |
-| `REDIS_PASSWORD` | `${{Redis.REDISPASSWORD}}` |
+**SMTP Settings:**
+- Server: `[railway-generated-domain]`
+- Port: `[railway-generated-port]`
+- Security: STARTTLS or SSL/TLS
 
-### Step 5: Security Keys (Recommended)
+**Note**: Standard mail ports (25, 587, 993, etc.) are NOT directly accessible. Use the Railway-generated endpoints instead.
 
-| Variable | Value | Description |
-|----------|--------|-------------|
-| `SECRET_KEY` | `${{secret()}}` | Auto-generates secure key |
-| `ROUNDCUBE_DES_KEY` | `${{secret(24)}}` | Auto-generates 24-char key |
+### Alternative: External Proxy Solution
 
-### Step 6: Redeploy
+For standard port access, consider:
+1. **Cloudflare Spectrum** (paid): Proxy standard ports to Railway endpoints
+2. **VPS Proxy**: Set up nginx/HAProxy on a VPS to forward traffic
+3. **Hybrid Setup**: Use Railway for web interface, external server for mail
 
-After adding all variables, redeploy your service:
-1. Click "Deploy" in the Railway dashboard
-2. The service should now start successfully
+## Volume Structure
 
-### Optional Configuration
-
-For additional configuration options, see `.env.example`. All variables listed there can be added to Railway's Variables tab.
-
-## Post-Deployment Setup
-
-### 1. Configure DNS Records
-
-After deployment, configure your domain's DNS:
-
+The unified container organizes all data under `/data`:
 ```
-Type    Name    Value                   TTL
-A       mail    YOUR_RAILWAY_IP         3600
-MX      @       mail.yourdomain.com     3600 (Priority: 10)
-TXT     @       v=spf1 a mx ~all        3600
-```
-
-### 2. Get DKIM Key
-
-SSH into your Railway service or check logs for the DKIM public key:
-
-```bash
-railway logs | grep "DKIM"
-```
-
-Add the DKIM record to your DNS:
-
-```
-Type    Name              Value
-TXT     mail._domainkey   v=DKIM1; k=rsa; p=YOUR_DKIM_PUBLIC_KEY
+/data/
+├── config/          # Service configurations
+├── vmail/           # Email storage (Dovecot)
+├── postfix-spool/   # Mail queue (Postfix)
+├── rspamd/          # Spam filter data
+├── www/             # Web interface files
+├── ssl/             # SSL certificates
+├── log/             # Unified logs
+├── backup/          # Backup storage
+└── tmp/             # Temporary files
 ```
 
-### 3. Configure Railway TCP Proxy
+## DNS Configuration
 
-For mail protocols, configure Railway TCP Proxy:
+Configure these DNS records for your domain:
 
-1. Go to your BillionMail service settings
-2. Add TCP Proxy for ports:
-   - 25 (SMTP)
-   - 587 (Submission)
-   - 993 (IMAPS)
-   - 995 (POP3S)
-
-### 4. Access Services
-
-- **Webmail**: `https://YOUR_RAILWAY_DOMAIN`
-- **Admin Panel**: `https://YOUR_RAILWAY_DOMAIN:8080`
-- **API**: `https://YOUR_RAILWAY_DOMAIN/api`
-
-Default credentials:
-- Username: `admin`
-- Password: The one you set in environment variables
-
-## Email Client Configuration
-
-Configure email clients with these settings:
-
-### Incoming Mail
-- **IMAP Server**: `mail.yourdomain.com`
-- **Port**: 993 (SSL/TLS)
-- **Username**: Your full email address
-- **Password**: Your email password
-
-### Outgoing Mail
-- **SMTP Server**: `mail.yourdomain.com`
-- **Port**: 587 (STARTTLS)
-- **Username**: Your full email address
-- **Password**: Your email password
-
-## Monitoring
-
-### Health Check
-
-The service includes a comprehensive health check at `/health` that monitors:
-- Database connectivity
-- Redis connectivity
-- Mail services (Postfix, Dovecot, Rspamd)
-- Web services (Nginx, PHP-FPM)
-- API services
-
-### Logs
-
-View logs in Railway dashboard or via CLI:
-
-```bash
-railway logs -s billionmail
 ```
+Type    Name    Value                   TTL     Priority
+A       mail    YOUR_RAILWAY_IP         3600    -
+MX      @       mail.yourdomain.com     3600    10
+TXT     @       v=spf1 a mx ~all        3600    -
+```
+
+### DKIM Setup
+
+1. Check the BillionMail Core service logs for DKIM key
+2. Add TXT record: `mail._domainkey` with the DKIM public key
+
+## Post-Deployment Checklist
+
+- [ ] All services are running (check Railway dashboard)
+- [ ] DNS records are configured
+- [ ] SPF record is set
+- [ ] DKIM is configured
+- [ ] Test email sending via SMTP (port 587)
+- [ ] Test email receiving
+- [ ] Access webmail interface
+- [ ] Configure firewall rules if needed
+- [ ] Set up email accounts
+- [ ] Configure backup strategy
+
+## Access Points
+
+### Web Interface
+- **Admin Panel**: `https://[your-billionmail-core-domain].railway.app`
+- **Webmail**: `https://[your-billionmail-core-domain].railway.app/webmail`
+
+### Email Client Settings
+
+**Important**: Use the Railway-generated TCP proxy endpoints from your dashboard, NOT standard ports.
+
+Example configuration after setting up TCP proxies:
+- **IMAP Server**: `tcp-imap-[id].up.railway.app`
+  - Port: `[railway-generated-port]` (e.g., 10234)
+  - Security: SSL/TLS
+- **SMTP Server**: `tcp-smtp-[id].up.railway.app`
+  - Port: `[railway-generated-port]` (e.g., 10567)
+  - Security: STARTTLS
+
+Check your Railway dashboard → Networking → TCP Proxy for actual endpoints.
 
 ## Troubleshooting
 
-### Service Won't Start
+### Services Won't Start
+- Check environment variables are correctly set
+- Verify database connections
+- Check Railway service logs
 
-1. Check environment variables are set correctly
-2. Verify PostgreSQL and Redis services are running
-3. Check logs for specific errors:
-   ```bash
-   railway logs | grep ERROR
-   ```
+### Email Not Sending
+1. Verify SMTP ports are accessible
+2. Check Postfix logs in Railway
+3. Ensure DNS MX records are correct
+4. Verify authentication settings
 
-### Can't Send/Receive Email
+### Email Not Receiving
+1. Check MX records point to correct server
+2. Verify Dovecot is running
+3. Check firewall isn't blocking ports
+4. Review Dovecot logs
 
-1. Verify DNS records are configured correctly
-2. Check if ports are accessible:
-   ```bash
-   telnet mail.yourdomain.com 25
-   ```
-3. Review mail logs in Railway dashboard
+### Connection Issues Between Services
+- Ensure private networking is enabled
+- Use `.railway.internal` hostnames
+- Check service discovery is working
 
-### Database Connection Failed
+## Local Development
 
-1. Ensure PostgreSQL service is running
-2. Check DATABASE_URL is properly set
-3. Verify network connectivity between services
-
-### Performance Issues
-
-1. Scale your Railway services:
-   - Increase PostgreSQL resources
-   - Add more Redis memory
-2. Enable caching in environment variables
-3. Monitor resource usage in Railway dashboard
-
-## Security Considerations
-
-1. **Change default passwords** immediately after deployment
-2. **Enable 2FA** for admin accounts
-3. **Configure firewall rules** if needed
-4. **Regular updates**: Keep the image updated
-5. **Monitor logs** for suspicious activity
-6. **Backup data** regularly using Railway volumes
-
-## Backup and Recovery
-
-### Automated Backups
-
-The template includes a backup script that runs daily. Backups are stored in `/app/storage/backups`.
-
-### Manual Backup
-
+For local testing:
 ```bash
-railway run scripts/backup.sh
-```
-
-### Restore
-
-1. Stop the service
-2. Restore database from backup
-3. Copy mail files from backup
-4. Restart service
-
-## Development
-
-### Local Development
-
-1. Clone the repository
-2. Copy `.env.example` to `.env`
-3. Configure local PostgreSQL and Redis
-4. Build and run with Docker:
-
-```bash
+# Build the unified container
 docker build -t billionmail-railway .
-docker run -p 80:80 --env-file .env billionmail-railway
+
+# Run with local volume
+docker run -d \
+  -v billionmail-data:/data \
+  -p 80:80 -p 443:443 \
+  -p 25:25 -p 587:587 -p 465:465 \
+  -p 143:143 -p 993:993 \
+  -p 110:110 -p 995:995 \
+  --env-file .env \
+  billionmail-railway
 ```
 
-### Testing
+For multi-container testing, use the provided `docker-compose.yml`.
 
-Run health checks:
+## Security Recommendations
 
-```bash
-./scripts/health-check.sh
-```
+1. **Use Strong Passwords**: Generate secure passwords for all services
+2. **Enable 2FA**: On your Railway account
+3. **Regular Updates**: Keep Docker images updated
+4. **Monitor Logs**: Check for suspicious activity
+5. **Backup Data**: Regular backups of volumes
+6. **SSL/TLS**: Always use encrypted connections
+7. **Firewall Rules**: Restrict access to necessary ports only
+
+## Railway-Specific Architecture
+
+### Unified Container Approach
+This deployment uses a custom unified container that:
+- Combines all BillionMail services (Postfix, Dovecot, Rspamd, web interface)
+- Uses supervisord to manage multiple processes
+- Stores all persistent data under a single `/data` volume
+- Redirects standard service paths to `/data` subdirectories via symlinks
+
+### Benefits
+- **Single Volume Compliance**: Works within Railway's one-volume-per-service limit
+- **Simplified Deployment**: One container instead of multiple services
+- **Unified Logging**: All logs in `/data/log` for easy debugging
+- **Persistent Data**: All mail, configuration, and state data persists across restarts
+
+## Limitations on Railway
+
+- **Non-Standard Mail Ports**: Railway uses TCP proxies with generated endpoints instead of standard mail ports (25, 587, 993, etc.)
+- **Mail Client Compatibility**: Users must configure mail clients with Railway's custom endpoints
+- **Static IP**: Railway doesn't provide static IPs (may affect mail delivery reputation)
+- **Volume Size**: Check Railway's volume size limits for mail storage
+- **Egress Limits**: Be aware of outbound traffic limits for bulk email
+- **Port 25 Restrictions**: Many ISPs block port 25, affecting mail server-to-server communication
+
+## Recommended Alternatives
+
+For production email servers, consider:
+- **VPS Providers**: DigitalOcean, Linode, Vultr
+- **Dedicated Mail Hosting**: MXRoute, Migadu
+- **Managed Solutions**: AWS SES, SendGrid, Mailgun
 
 ## Support
 
 - [BillionMail Documentation](https://github.com/aaPanel/BillionMail)
 - [Railway Documentation](https://docs.railway.app)
-- [Issues](https://github.com/yourusername/billionmail-railway/issues)
+- [Railway Discord](https://discord.gg/railway)
 
 ## License
 
-This Railway template is open source. BillionMail is licensed under AGPLv3.
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## Credits
-
-- [BillionMail](https://github.com/aaPanel/BillionMail) - The email platform
-- [Railway](https://railway.app) - Hosting platform
-- [Postfix](http://www.postfix.org/) - Mail transfer agent
-- [Dovecot](https://www.dovecot.org/) - IMAP/POP3 server
-- [Roundcube](https://roundcube.net/) - Webmail client
-- [Rspamd](https://rspamd.com/) - Spam filtering
+This deployment guide is provided as-is. BillionMail is licensed under AGPLv3.

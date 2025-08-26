@@ -1,160 +1,96 @@
-# Build BillionMail for Railway deployment
-FROM debian:12-slim
+# Unified BillionMail container for Railway with single /data volume
+FROM alpine:3.20
 
-# Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive \
-    TZ=UTC \
-    LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8
-
-# Install system dependencies and mail server components
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Core utilities
-    curl \
-    wget \
-    git \
-    ca-certificates \
-    gnupg \
-    lsb-release \
+# Install runtime dependencies
+RUN apk add --no-cache \
+    bash \
     supervisor \
-    netcat-openbsd \
+    postgresql16-client \
+    redis \
+    curl \
     jq \
-    gettext-base \
-    # Database client
-    postgresql-client \
-    # SASL authentication (REQUIRED for mail authentication)
-    sasl2-bin \
-    libsasl2-modules \
-    # DNS utilities (REQUIRED for mail routing)
-    dnsutils \
-    # Additional mail server requirements
-    postfix-pcre \
-    dovecot-ldap \
-    # System utilities
-    rsyslog \
-    cron \
-    telnet \
-    ipset \
-    procps \
-    # Rspamd dependencies
-    lua-cjson \
-    nano \
-    # Build tools
-    build-essential \
-    python3 \
-    python3-pip \
-    python3-venv \
-    # Mail server components
+    netcat-openbsd \
+    tzdata \
+    ca-certificates \
+    openssl \
+    # Mail server essentials
     postfix \
     postfix-pgsql \
-    dovecot-core \
-    dovecot-imapd \
-    dovecot-pop3d \
-    dovecot-lmtpd \
+    dovecot \
     dovecot-pgsql \
-    dovecot-sieve \
-    dovecot-managesieved \
-    # Rspamd (spam filter)
+    dovecot-lmtpd \
     rspamd \
-    redis-tools \
-    # Web server and PHP for Roundcube
-    nginx \
-    php8.2-fpm \
-    php8.2-pgsql \
-    php8.2-intl \
-    php8.2-ldap \
-    php8.2-gd \
-    php8.2-curl \
-    php8.2-xml \
-    php8.2-mbstring \
-    php8.2-zip \
-    php8.2-imap \
-    php8.2-opcache \
-    php8.2-redis \
+    rspamd-client \
     # Additional tools
-    opendkim \
-    opendkim-tools \
-    spamassassin \
-    clamav \
-    clamav-daemon \
     fail2ban \
-    && rm -rf /var/lib/apt/lists/*
+    rsyslog \
+    nginx \
+    php82 \
+    php82-fpm \
+    php82-pgsql \
+    php82-imap \
+    php82-intl \
+    php82-ldap \
+    php82-gd \
+    php82-curl \
+    php82-xml \
+    php82-mbstring \
+    php82-zip \
+    php82-opcache \
+    php82-redis
 
-# Install Roundcube webmail
-RUN cd /tmp && \
-    wget https://github.com/roundcube/roundcubemail/releases/download/1.6.6/roundcubemail-1.6.6-complete.tar.gz && \
-    tar xzf roundcubemail-1.6.6-complete.tar.gz && \
-    mv roundcubemail-1.6.6 /var/www/roundcube && \
-    chown -R www-data:www-data /var/www/roundcube && \
-    rm -rf /tmp/roundcubemail-*
-
-# Clone BillionMail repository for management interface
-RUN git clone https://github.com/aaPanel/BillionMail.git /opt/billionmail && \
-    cd /opt/billionmail && \
-    git checkout main
-
-# Create directory structure
+# Create unified directory structure under /data
 RUN mkdir -p \
-    /app/scripts \
-    /app/config \
-    /app/storage/mail \
-    /app/storage/config \
-    /app/storage/logs \
-    /app/storage/data \
-    /app/storage/temp \
-    /var/log/supervisor \
-    /var/run/supervisor \
-    /etc/postfix/sql \
-    /etc/dovecot/sql \
-    /var/vmail \
-    /var/lib/rspamd
+    /data/config \
+    /data/vmail \
+    /data/postfix-spool \
+    /data/rspamd \
+    /data/www \
+    /data/ssl \
+    /data/log \
+    /data/backup \
+    /data/tmp
 
 # Create mail user
-RUN groupadd -g 5000 vmail && \
-    useradd -u 5000 -g vmail -s /usr/sbin/nologin -d /var/vmail -m vmail
+RUN addgroup -g 5000 vmail && \
+    adduser -u 5000 -G vmail -s /sbin/nologin -D vmail
 
-# Copy configuration files
-COPY supervisord.conf /etc/supervisor/supervisord.conf
+# Copy wrapper scripts
+COPY scripts/unified-start.sh /usr/local/bin/
+COPY scripts/setup-volumes.sh /usr/local/bin/
+COPY scripts/health-check.sh /usr/local/bin/
+COPY supervisord-unified.conf /etc/supervisor/supervisord.conf
 
-# Copy scripts to system location (not affected by volume mounts)
-COPY scripts /usr/local/bin/billionmail
+# Make scripts executable
+RUN chmod +x /usr/local/bin/*.sh
 
-# Create app directories (config files will be generated at runtime)
-RUN mkdir -p /app/config /app/storage
+# Set up symbolic links to redirect standard paths to /data
+RUN ln -sf /data/vmail /var/vmail && \
+    ln -sf /data/postfix-spool /var/spool/postfix && \
+    ln -sf /data/rspamd /var/lib/rspamd && \
+    ln -sf /data/www /var/www/html && \
+    ln -sf /data/ssl /etc/ssl/mail && \
+    ln -sf /data/config /etc/billionmail
 
-# Make scripts executable and verify they exist
-RUN chmod +x /usr/local/bin/billionmail/*.sh && \
-    ls -la /usr/local/bin/billionmail/ && \
-    test -f /usr/local/bin/billionmail/start.sh || (echo "ERROR: start.sh not found!" && exit 1)
+# Configure services to use /data paths
+RUN echo "mail_location = maildir:/data/vmail/%d/%n/Maildir" > /etc/dovecot/conf.d/10-mail.conf && \
+    echo "queue_directory = /data/postfix-spool" >> /etc/postfix/main.cf && \
+    echo "dbdir = /data/rspamd" >> /etc/rspamd/local.d/redis.conf
 
-# BillionMail repository cloned above contains configuration scripts
-# The actual mail services are provided by Postfix, Dovecot, Rspamd, and Roundcube
+# Single volume mount point
+VOLUME ["/data"]
 
-# Configure nginx for Railway
-RUN rm -f /etc/nginx/sites-enabled/default && \
-    ln -sf /dev/stdout /var/log/nginx/access.log && \
-    ln -sf /dev/stderr /var/log/nginx/error.log
+# Environment variables
+ENV TZ=UTC \
+    HOSTNAME=mail.example.com \
+    ADMIN_EMAIL=admin@example.com
 
-# Set proper permissions
-RUN chown -R vmail:vmail /var/vmail /app/storage/mail && \
-    chown -R www-data:www-data /var/www/roundcube /app/storage/data && \
-    chmod -R 755 /app
-
-# Configure for Railway's IPv6 networking
-ENV BIND_ADDRESS=:: \
-    HOSTNAME=::
+# Expose ports
+EXPOSE 25 587 465 143 993 110 995 80 443
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
-    CMD /usr/local/bin/billionmail/health-check.sh || exit 1
+    CMD /usr/local/bin/health-check.sh || exit 1
 
-# Expose ports
-# Web interface
-EXPOSE 80 443
-# Mail ports
-EXPOSE 25 587 465 143 993 110 995
-# Admin interface
-EXPOSE 8080
-
-# Start with supervisord (using bash explicitly)
-CMD ["/bin/bash", "/usr/local/bin/billionmail/start.sh"]
+# Start with unified script
+ENTRYPOINT ["/usr/local/bin/unified-start.sh"]
