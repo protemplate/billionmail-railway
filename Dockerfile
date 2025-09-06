@@ -16,11 +16,22 @@ RUN apk add --no-cache \
     # Mail server essentials
     postfix \
     postfix-pgsql \
+    postfix-pcre \
     dovecot \
     dovecot-pgsql \
     dovecot-lmtpd \
     rspamd \
     rspamd-client \
+    # SMTP authentication and delivery
+    cyrus-sasl \
+    cyrus-sasl-plain \
+    cyrus-sasl-login \
+    opendkim \
+    opendkim-tools \
+    # Python for API transport
+    python3 \
+    py3-pip \
+    py3-requests \
     # Additional tools
     fail2ban \
     rsyslog \
@@ -49,7 +60,9 @@ RUN mkdir -p \
     /data/ssl \
     /data/log \
     /data/backup \
-    /data/tmp
+    /data/tmp \
+    /data/dkim \
+    /var/run/opendkim
 
 # Create mail user
 RUN addgroup -g 5000 vmail && \
@@ -59,6 +72,7 @@ RUN addgroup -g 5000 vmail && \
 COPY scripts/unified-start.sh /usr/local/bin/
 COPY scripts/setup-volumes.sh /usr/local/bin/
 COPY scripts/health-check.sh /usr/local/bin/
+COPY scripts/configure-smtp.sh /usr/local/bin/
 COPY supervisord-unified.conf /etc/supervisor/supervisord.conf
 
 # Make scripts executable

@@ -8,6 +8,9 @@ echo "Starting BillionMail with unified /data volume..."
 # Setup volume structure
 /usr/local/bin/setup-volumes.sh
 
+# Configure SMTP based on environment
+/usr/local/bin/configure-smtp.sh
+
 # Wait for database
 echo "Waiting for PostgreSQL..."
 until pg_isready -h "${PGHOST:-localhost}" -p "${PGPORT:-5432}" -U "${PGUSER:-postgres}"; do
@@ -32,6 +35,9 @@ fi
 
 # Generate configurations from environment
 echo "Generating configurations..."
+
+# Configure SMTP based on mode
+echo "Configuring SMTP mode: ${SMTP_MODE:-direct}"
 
 # Postfix configuration
 cat > /etc/postfix/main.cf <<EOF
@@ -76,7 +82,43 @@ milter_default_action = accept
 milter_protocol = 6
 smtpd_milters = inet:localhost:11332
 non_smtpd_milters = inet:localhost:11332
+
+# SMTP Delivery Configuration
+smtp_helo_name = ${SMTP_HELO_NAME:-${HOSTNAME:-mail.example.com}}
+bounce_queue_lifetime = 4h
+maximal_queue_lifetime = 5d
+maximal_backoff_time = 4000s
+minimal_backoff_time = 300s
+queue_run_delay = 300s
+
+# Connection limits
+smtp_destination_concurrency_limit = ${SMTP_MAX_CONNECTIONS:-10}
+smtp_destination_rate_delay = 1s
+smtp_connect_timeout = ${SMTP_CONNECTION_TIMEOUT:-30}s
 EOF
+
+# Configure SMTP relay if needed
+if [ "${SMTP_MODE}" = "relay" ] && [ -n "${SMTP_RELAY_HOST}" ]; then
+    echo "Configuring SMTP relay via ${SMTP_RELAY_HOST}:${SMTP_RELAY_PORT:-587}"
+    cat >> /etc/postfix/main.cf <<EOF
+
+# SMTP Relay Configuration
+relayhost = [${SMTP_RELAY_HOST}]:${SMTP_RELAY_PORT:-587}
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+smtp_use_tls = yes
+smtp_tls_security_level = encrypt
+smtp_tls_note_starttls_offer = yes
+EOF
+
+    # Create SASL password file
+    if [ -n "${SMTP_RELAY_USER}" ] && [ -n "${SMTP_RELAY_PASSWORD}" ]; then
+        echo "[${SMTP_RELAY_HOST}]:${SMTP_RELAY_PORT:-587} ${SMTP_RELAY_USER}:${SMTP_RELAY_PASSWORD}" > /etc/postfix/sasl_passwd
+        postmap /etc/postfix/sasl_passwd
+        chmod 600 /etc/postfix/sasl_passwd /etc/postfix/sasl_passwd.db
+    fi
+fi
 
 # Dovecot configuration
 cat > /etc/dovecot/dovecot.conf <<EOF
@@ -145,6 +187,24 @@ if [ ! -f /data/ssl/cert.pem ]; then
         -keyout /data/ssl/key.pem \
         -out /data/ssl/cert.pem \
         -subj "/C=US/ST=State/L=City/O=Organization/CN=${HOSTNAME:-mail.example.com}"
+fi
+
+# Configure email API transport if needed
+if [ "${SMTP_MODE}" = "api" ]; then
+    echo "Configuring HTTP API email delivery"
+    # Create transport map for API delivery
+    cat > /etc/postfix/transport <<EOF
+# Route all mail through API transport
+*    smtp-api:
+EOF
+    postmap /etc/postfix/transport
+    
+    # Add transport configuration to main.cf
+    cat >> /etc/postfix/main.cf <<EOF
+
+# API Transport Configuration
+transport_maps = hash:/etc/postfix/transport
+EOF
 fi
 
 # Fix permissions

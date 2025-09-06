@@ -106,3 +106,27 @@ CLIENT_MAX_BODY_SIZE = { default = "50M", description = "Maximum request body si
 # Monitoring
 ENABLE_MONITORING = { default = "true", description = "Enable monitoring endpoints" }
 METRICS_PORT = { default = "9090", description = "Metrics endpoint port" }
+
+# SMTP Configuration (Pro Plan Required for Direct SMTP)
+SMTP_MODE = { default = "direct", description = "SMTP delivery mode: direct (Pro plan), relay, or api" }
+SMTP_RELAY_HOST = { default = "", description = "External SMTP relay hostname" }
+SMTP_RELAY_PORT = { default = "587", description = "External SMTP relay port" }
+SMTP_RELAY_USER = { default = "", description = "SMTP relay authentication username" }
+SMTP_RELAY_PASSWORD = { default = "", description = "SMTP relay authentication password" }
+SMTP_RELAY_ENCRYPTION = { default = "starttls", description = "SMTP encryption: starttls, ssl, or none" }
+
+# Email API Configuration (Alternative to SMTP)
+EMAIL_API_PROVIDER = { default = "resend", description = "Email API provider: resend, sendgrid, mailgun, postmark" }
+EMAIL_API_KEY = { default = "", description = "API key for email service provider" }
+RESEND_API_KEY = { default = "", description = "Resend API key (recommended for non-Pro plans)" }
+SENDGRID_API_KEY = { default = "", description = "SendGrid API key" }
+
+# SMTP Limits and Performance
+SMTP_MAX_SEND_RATE = { default = "100/hour", description = "Maximum email send rate" }
+SMTP_MAX_CONNECTIONS = { default = "10", description = "Maximum concurrent SMTP connections" }
+SMTP_CONNECTION_TIMEOUT = { default = "30", description = "SMTP connection timeout in seconds" }
+
+# Email Deliverability
+SMTP_HELO_NAME = { default = "${{DOMAIN}}", description = "SMTP HELO hostname" }
+SMTP_BOUNCE_ADDRESS = { default = "bounces@${{DOMAIN}}", description = "Bounce email address" }
+SMTP_RETURN_PATH = { default = "returns@${{DOMAIN}}", description = "Return path for emails" }
