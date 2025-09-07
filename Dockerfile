@@ -98,6 +98,7 @@ ENV TZ=UTC \
     ADMIN_EMAIL=admin@example.com
 
 # Expose ports
+# Railway will assign PORT dynamically, but we expose common ports for documentation
 EXPOSE 25 587 465 143 993 110 995 80 443
 
 # Health check

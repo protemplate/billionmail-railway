@@ -198,6 +198,69 @@ namespace inbox {
 }
 EOF
 
+# Nginx configuration for health checks and web interface
+cat > /etc/nginx/http.d/default.conf <<EOF
+server {
+    listen ${PORT:-80} default_server;
+    listen [::]:${PORT:-80} default_server;
+    server_name _;
+    
+    # Health check endpoint for Railway
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    # Root directory
+    location / {
+        root /data/www;
+        index index.html index.php;
+    }
+    
+    # PHP processing
+    location ~ \.php$ {
+        root /data/www;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+    
+    # Webmail (if installed)
+    location /webmail {
+        alias /data/www/roundcube;
+        index index.php;
+        
+        location ~ \.php$ {
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME \$request_filename;
+            include fastcgi_params;
+        }
+    }
+}
+EOF
+
+# Create a simple index page
+cat > /data/www/index.html <<EOF
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BillionMail on Railway</title>
+</head>
+<body>
+    <h1>BillionMail Mail Server</h1>
+    <p>Server is running successfully!</p>
+    <ul>
+        <li>SMTP: Port 25, 587, 465</li>
+        <li>IMAP: Port 143, 993</li>
+        <li>POP3: Port 110, 995</li>
+    </ul>
+</body>
+</html>
+EOF
+
 # Rspamd configuration
 mkdir -p /etc/rspamd/local.d
 cat > /etc/rspamd/local.d/redis.conf <<EOF
