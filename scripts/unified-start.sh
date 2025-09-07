@@ -139,16 +139,21 @@ if [ ! -f /data/ssl/cert.pem ] || [ ! -f /data/ssl/key.pem ]; then
     chmod 644 /data/ssl/cert.pem
 fi
 
-# Dovecot configuration
+# Dovecot configuration - simplified for Railway
+# Clear any existing configs first
+rm -f /etc/dovecot/conf.d/*.conf 2>/dev/null || true
+
 cat > /etc/dovecot/dovecot.conf <<EOF
-protocols = imap pop3 lmtp
-listen = *, ::
+# Minimal Dovecot configuration for Railway
+protocols = imap
+listen = *
 mail_location = maildir:/data/vmail/%d/%n/Maildir
 mail_uid = vmail
 mail_gid = vmail
-first_valid_uid = 5000
-last_valid_uid = 5000
+
+# Simple authentication
 auth_mechanisms = plain login
+disable_plaintext_auth = no
 
 passdb {
     driver = static
@@ -160,28 +165,37 @@ userdb {
     args = uid=vmail gid=vmail home=/data/vmail/%d/%n
 }
 
-service auth {
-    unix_listener /var/spool/postfix/private/auth {
-        mode = 0666
-        user = postfix
-        group = postfix
-    }
-}
-
-service lmtp {
-    unix_listener /var/spool/postfix/private/dovecot-lmtp {
-        mode = 0600
-        user = postfix
-        group = postfix
-    }
-}
-
+# SSL configuration
 ssl = yes
 ssl_cert = </data/ssl/cert.pem
 ssl_key = </data/ssl/key.pem
 
+# Logging
 log_path = /data/log/dovecot.log
-info_log_path = /data/log/dovecot-info.log
+
+# Service configuration
+service imap-login {
+    inet_listener imap {
+        port = 143
+    }
+    inet_listener imaps {
+        port = 993
+        ssl = yes
+    }
+}
+
+namespace inbox {
+    inbox = yes
+    mailbox Drafts {
+        special_use = \Drafts
+    }
+    mailbox Sent {
+        special_use = \Sent
+    }
+    mailbox Trash {
+        special_use = \Trash
+    }
+}
 EOF
 
 # Rspamd configuration
