@@ -33,25 +33,25 @@ check_service() {
 
 echo "Starting health check..."
 
-# 1. Check PostgreSQL connectivity (external service)
-if [ -n "$DATABASE_URL" ]; then
+# 1. Check PostgreSQL connectivity (external service) using PG* variables
+if [ -n "$PGHOST" ] && [ -n "$PGUSER" ] && [ -n "$PGDATABASE" ]; then
+    check_service "PostgreSQL" "pg_isready -h '$PGHOST' -p '${PGPORT:-5432}' -U '$PGUSER' -d '$PGDATABASE'"
+elif [ -n "$DATABASE_URL" ]; then
     check_service "PostgreSQL" "pg_isready -d '$DATABASE_URL'"
 fi
 
-# 2. Check Redis connectivity (external service)
-if [ -n "$REDIS_URL" ]; then
-    # Extract host and port from REDIS_URL
-    REDIS_HOST=$(echo "$REDIS_URL" | sed -n 's|redis://\(.*\):\([0-9]*\).*|\1|p')
-    REDIS_PORT=$(echo "$REDIS_URL" | sed -n 's|redis://\(.*\):\([0-9]*\).*|\2|p')
+# 2. Check Redis connectivity (external service) using REDIS* variables
+if [ -n "$REDISHOST" ]; then
+    check_service "Redis" "redis-cli -h '$REDISHOST' -p '${REDISPORT:-6379}' ping"
+elif [ -n "$REDIS_URL" ]; then
+    # Fallback to parsing REDIS_URL if REDIS* variables not set
+    PARSED_REDIS_HOST=$(echo "$REDIS_URL" | sed -n 's|redis://\(.*\):\([0-9]*\).*|\1|p')
+    PARSED_REDIS_PORT=$(echo "$REDIS_URL" | sed -n 's|redis://\(.*\):\([0-9]*\).*|\2|p')
     
-    if [ -z "$REDIS_HOST" ]; then
-        REDIS_HOST="localhost"
-    fi
-    if [ -z "$REDIS_PORT" ]; then
-        REDIS_PORT="6379"
-    fi
+    PARSED_REDIS_HOST="${PARSED_REDIS_HOST:-localhost}"
+    PARSED_REDIS_PORT="${PARSED_REDIS_PORT:-6379}"
     
-    check_service "Redis" "redis-cli -h '$REDIS_HOST' -p '$REDIS_PORT' ping"
+    check_service "Redis" "redis-cli -h '$PARSED_REDIS_HOST' -p '$PARSED_REDIS_PORT' ping"
 fi
 
 # 3. Check web interface (nginx)

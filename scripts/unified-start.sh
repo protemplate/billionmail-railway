@@ -11,7 +11,7 @@ echo "Starting BillionMail with unified /data volume..."
 # Configure SMTP based on environment
 /usr/local/bin/configure-smtp.sh
 
-# Wait for database
+# Wait for database using PG* variables
 echo "Waiting for PostgreSQL..."
 until pg_isready -h "${PGHOST:-localhost}" -p "${PGPORT:-5432}" -U "${PGUSER:-postgres}"; do
     echo "PostgreSQL is unavailable - sleeping"
@@ -19,9 +19,9 @@ until pg_isready -h "${PGHOST:-localhost}" -p "${PGPORT:-5432}" -U "${PGUSER:-po
 done
 echo "PostgreSQL is ready"
 
-# Wait for Redis
+# Wait for Redis using REDIS* variables
 echo "Waiting for Redis..."
-until redis-cli -h "${REDIS_HOST:-localhost}" -p "${REDIS_PORT:-6379}" ping; do
+until redis-cli -h "${REDISHOST:-localhost}" -p "${REDISPORT:-6379}" ping; do
     echo "Redis is unavailable - sleeping"
     sleep 2
 done

@@ -55,9 +55,20 @@ port = 995
 
 # Environment variable schema
 [variables]
-# Database configuration
-DATABASE_URL = { required = true, description = "PostgreSQL connection string" }
-REDIS_URL = { required = true, description = "Redis connection string" }
+# PostgreSQL configuration (using PG* convention)
+PGHOST = { default = "${{RAILWAY_PRIVATE_DOMAIN}}", description = "PostgreSQL host" }
+PGPORT = { default = "5432", description = "PostgreSQL port" }
+PGUSER = { default = "${{POSTGRES_USER}}", description = "PostgreSQL user" }
+PGPASSWORD = { default = "${{POSTGRES_PASSWORD}}", description = "PostgreSQL password" }
+PGDATABASE = { default = "${{POSTGRES_DB}}", description = "PostgreSQL database name" }
+DATABASE_URL = { default = "postgresql://${{PGUSER}}:${{PGPASSWORD}}@${{PGHOST}}:${{PGPORT}}/${{PGDATABASE}}", description = "PostgreSQL connection string" }
+
+# Redis configuration (using REDIS* convention)
+REDISHOST = { default = "${{RAILWAY_PRIVATE_DOMAIN}}", description = "Redis host" }
+REDISPORT = { default = "6379", description = "Redis port" }
+REDISUSER = { default = "default", description = "Redis username" }
+REDISPASSWORD = { default = "${{REDIS_PASSWORD}}", description = "Redis password" }
+REDIS_URL = { default = "redis://${{REDISUSER}}:${{REDISPASSWORD}}@${{REDISHOST}}:${{REDISPORT}}", description = "Redis connection string" }
 
 # Domain configuration
 DOMAIN = { required = true, description = "Primary mail domain (e.g., mail.example.com)" }
