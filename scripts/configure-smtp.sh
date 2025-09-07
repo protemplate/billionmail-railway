@@ -73,9 +73,23 @@ generate_dkim_keys() {
     mkdir -p /data/dkim
     
     if [ ! -f "/data/dkim/${domain}.private" ]; then
-        opendkim-genkey -D /data/dkim -d "${domain}" -s "${selector}"
-        mv "/data/dkim/${selector}.private" "/data/dkim/${domain}.private"
-        mv "/data/dkim/${selector}.txt" "/data/dkim/${domain}.txt"
+        # Generate DKIM key using openssl (opendkim-genkey not available in Alpine)
+        echo "Generating DKIM keys using OpenSSL..."
+        openssl genrsa -out "/data/dkim/${domain}.private" 2048 2>/dev/null
+        openssl rsa -in "/data/dkim/${domain}.private" -pubout -out "/data/dkim/${domain}.public" 2>/dev/null
+        
+        # Extract public key for DNS record
+        pubkey=$(openssl rsa -in "/data/dkim/${domain}.private" -pubout 2>/dev/null | grep -v "^-----" | tr -d '\n')
+        
+        # Create DNS TXT record format
+        cat > "/data/dkim/${domain}.txt" <<EOF
+${selector}._domainkey IN TXT "v=DKIM1; k=rsa; p=${pubkey}"
+EOF
+        
+        # Set proper permissions
+        chmod 600 "/data/dkim/${domain}.private"
+        chmod 644 "/data/dkim/${domain}.public"
+        chmod 644 "/data/dkim/${domain}.txt"
         
         echo ""
         echo "DKIM Public Key (add this to DNS):"

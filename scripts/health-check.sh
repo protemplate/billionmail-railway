@@ -4,10 +4,10 @@
 
 set -e
 
-# Colors for output (optional, for debugging)
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+# Colors for output (currently unused, kept for future debugging)
+# RED='\033[0;31m'
+# GREEN='\033[0;32m'
+# NC='\033[0m' # No Color
 
 # Exit codes
 EXIT_SUCCESS=0
