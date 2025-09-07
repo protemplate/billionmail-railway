@@ -21,10 +21,17 @@ echo "PostgreSQL is ready"
 
 # Wait for Redis using REDIS* variables
 echo "Waiting for Redis..."
-until redis-cli -h "${REDISHOST:-localhost}" -p "${REDISPORT:-6379}" ping; do
-    echo "Redis is unavailable - sleeping"
-    sleep 2
-done
+if [ -n "${REDISPASSWORD}" ]; then
+    until redis-cli -h "${REDISHOST:-localhost}" -p "${REDISPORT:-6379}" -a "${REDISPASSWORD}" ping 2>/dev/null | grep -q PONG; do
+        echo "Redis is unavailable - sleeping"
+        sleep 2
+    done
+else
+    until redis-cli -h "${REDISHOST:-localhost}" -p "${REDISPORT:-6379}" ping 2>/dev/null | grep -q PONG; do
+        echo "Redis is unavailable - sleeping"
+        sleep 2
+    done
+fi
 echo "Redis is ready"
 
 # Initialize database if needed
@@ -168,8 +175,8 @@ EOF
 # Rspamd configuration
 mkdir -p /etc/rspamd/local.d
 cat > /etc/rspamd/local.d/redis.conf <<EOF
-servers = "${REDIS_HOST:-localhost}:${REDIS_PORT:-6379}";
-password = "${REDIS_PASSWORD:-}";
+servers = "${REDISHOST:-localhost}:${REDISPORT:-6379}";
+password = "${REDISPASSWORD:-}";
 db = "0";
 dbdir = "/data/rspamd";
 EOF
@@ -208,9 +215,9 @@ EOF
 fi
 
 # Fix permissions
-chown -R vmail:vmail /data/vmail
-chown -R postfix:postfix /data/postfix-spool
-chown -R _rspamd:_rspamd /data/rspamd
+chown -R vmail:vmail /data/vmail 2>/dev/null || true
+chown -R postfix:postfix /data/postfix-spool 2>/dev/null || true
+chown -R rspamd:rspamd /data/rspamd 2>/dev/null || true
 chmod 700 /data/vmail
 
 echo "Starting services with supervisord..."

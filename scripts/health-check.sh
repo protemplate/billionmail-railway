@@ -42,16 +42,14 @@ fi
 
 # 2. Check Redis connectivity (external service) using REDIS* variables
 if [ -n "$REDISHOST" ]; then
-    check_service "Redis" "redis-cli -h '$REDISHOST' -p '${REDISPORT:-6379}' ping"
+    if [ -n "$REDISPASSWORD" ]; then
+        check_service "Redis" "redis-cli -h '$REDISHOST' -p '${REDISPORT:-6379}' -a '$REDISPASSWORD' ping 2>/dev/null | grep -q PONG"
+    else
+        check_service "Redis" "redis-cli -h '$REDISHOST' -p '${REDISPORT:-6379}' ping 2>/dev/null | grep -q PONG"
+    fi
 elif [ -n "$REDIS_URL" ]; then
     # Fallback to parsing REDIS_URL if REDIS* variables not set
-    PARSED_REDIS_HOST=$(echo "$REDIS_URL" | sed -n 's|redis://\(.*\):\([0-9]*\).*|\1|p')
-    PARSED_REDIS_PORT=$(echo "$REDIS_URL" | sed -n 's|redis://\(.*\):\([0-9]*\).*|\2|p')
-    
-    PARSED_REDIS_HOST="${PARSED_REDIS_HOST:-localhost}"
-    PARSED_REDIS_PORT="${PARSED_REDIS_PORT:-6379}"
-    
-    check_service "Redis" "redis-cli -h '$PARSED_REDIS_HOST' -p '$PARSED_REDIS_PORT' ping"
+    check_service "Redis" "redis-cli -u '$REDIS_URL' ping 2>/dev/null | grep -q PONG"
 fi
 
 # 3. Check web interface (nginx)
