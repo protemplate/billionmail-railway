@@ -91,8 +91,8 @@ RUN echo "mail_location = maildir:/data/vmail/%d/%n/Maildir" > /etc/dovecot/conf
     echo "queue_directory = /data/postfix-spool" >> /etc/postfix/main.cf && \
     echo "dbdir = /data/rspamd" >> /etc/rspamd/local.d/redis.conf
 
-# Single volume mount point
-VOLUME ["/data"]
+# Railway manages volumes externally - no VOLUME instruction needed
+# All persistent data will be stored under /data when mounted via Railway
 
 # Environment variables
 ENV TZ=UTC \
