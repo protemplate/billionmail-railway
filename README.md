@@ -14,11 +14,14 @@ BillionMail is a comprehensive, self-hosted email marketing platform that includ
 
 ## Prerequisites
 
-- Railway account with active subscription
+- Railway account (Pro plan required for SMTP functionality)
 - Custom domain for mail services
 - GitHub account (for repository-based deployments)
 
-> **Important**: Railway only allows one volume per service. This deployment uses a unified container that consolidates all BillionMail services to work with a single `/data` volume.
+> **⚠️ Important Railway Limitations**:
+> - **SMTP ports (25, 465, 587) only work on Pro plans** - Free/Hobby plans must use HTTP API services
+> - **Single volume per service** - This deployment uses a unified container with `/data` volume
+> - **No static IPs** - May affect email deliverability reputation
 
 ## Deployment Instructions
 
@@ -58,9 +61,17 @@ This deployment uses a unified container approach that combines all BillionMail 
    ADMIN_PASSWORD=YourSecurePassword
    SECRET_KEY=YourSecretKey  # Generate with: openssl rand -hex 32
    TZ=UTC
-   DATABASE_URL=${{DATABASE_URL}}
-   REDIS_URL=${{REDIS_URL}}
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   REDIS_URL=${{Redis.REDIS_URL}}
    DB_INIT=true
+   
+   # For non-Pro plans (use HTTP API for email):
+   SMTP_MODE=api
+   EMAIL_API_PROVIDER=resend
+   RESEND_API_KEY=your-resend-api-key
+   
+   # For Pro plans (direct SMTP):
+   SMTP_MODE=direct
    ```
 4. Add volume in Settings → Volumes:
    - Mount path: `/data`
@@ -74,7 +85,8 @@ This deployment uses a unified container approach that combines all BillionMail 
 Railway has specific networking constraints for mail servers:
 
 1. **HTTP/HTTPS Traffic**: Works normally through Railway domains
-2. **Mail Ports (SMTP/IMAP/POP3)**: Require TCP Proxy configuration
+2. **SMTP Ports (25, 465, 587)**: **Only available on Pro plan** - Free/Hobby plans blocked
+3. **IMAP/POP3 Ports**: Available on all plans via TCP Proxy
 
 ### Setting Up TCP Proxies
 
@@ -256,12 +268,23 @@ This deployment uses a custom unified container that:
 
 ## Limitations on Railway
 
-- **Non-Standard Mail Ports**: Railway uses TCP proxies with generated endpoints instead of standard mail ports (25, 587, 993, etc.)
-- **Mail Client Compatibility**: Users must configure mail clients with Railway's custom endpoints
-- **Static IP**: Railway doesn't provide static IPs (may affect mail delivery reputation)
-- **Volume Size**: Check Railway's volume size limits for mail storage
-- **Egress Limits**: Be aware of outbound traffic limits for bulk email
-- **Port 25 Restrictions**: Many ISPs block port 25, affecting mail server-to-server communication
+### Plan-Based Restrictions
+- **Free/Trial/Hobby Plans**: 
+  - ❌ No SMTP ports (25, 465, 587) - must use HTTP API services
+  - ✅ Web interface and management features work
+  - ✅ Can receive email via IMAP/POP3
+  - ⚠️ Outbound email only via API (Resend, SendGrid, etc.)
+
+- **Pro Plan**:
+  - ✅ Full SMTP functionality available
+  - ✅ All mail protocols supported
+  - ⚠️ Still uses TCP proxy endpoints (non-standard ports)
+
+### General Railway Limitations
+- **Non-Standard Mail Ports**: Railway uses TCP proxies with generated endpoints
+- **No Static IPs**: May affect email deliverability reputation
+- **Single Volume**: All data must be stored under `/data`
+- **Egress Limits**: Check plan limits for bulk email sending
 
 ## Recommended Alternatives
 

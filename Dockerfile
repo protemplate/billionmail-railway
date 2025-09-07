@@ -24,10 +24,8 @@ RUN apk add --no-cache \
     rspamd-client \
     # SMTP authentication and delivery
     cyrus-sasl \
-    cyrus-sasl-plain \
     cyrus-sasl-login \
     opendkim \
-    opendkim-tools \
     # Python for API transport
     python3 \
     py3-pip \
@@ -64,9 +62,9 @@ RUN mkdir -p \
     /data/dkim \
     /var/run/opendkim
 
-# Create mail user
-RUN addgroup -g 5000 vmail && \
-    adduser -u 5000 -G vmail -s /sbin/nologin -D vmail
+# Create mail user (skip if already exists from dovecot package)
+RUN addgroup -g 5000 vmail 2>/dev/null || true && \
+    adduser -u 5000 -G vmail -s /sbin/nologin -D vmail 2>/dev/null || true
 
 # Copy wrapper scripts
 COPY scripts/unified-start.sh /usr/local/bin/
