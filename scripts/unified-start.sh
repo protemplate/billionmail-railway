@@ -127,6 +127,18 @@ EOF
     fi
 fi
 
+# Generate self-signed certificate if not exists (needed before Dovecot config)
+if [ ! -f /data/ssl/cert.pem ] || [ ! -f /data/ssl/key.pem ]; then
+    echo "Generating self-signed certificate..."
+    mkdir -p /data/ssl
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /data/ssl/key.pem \
+        -out /data/ssl/cert.pem \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=${HOSTNAME:-mail.example.com}" 2>/dev/null
+    chmod 600 /data/ssl/key.pem
+    chmod 644 /data/ssl/cert.pem
+fi
+
 # Dovecot configuration
 cat > /etc/dovecot/dovecot.conf <<EOF
 protocols = imap pop3 lmtp
@@ -139,13 +151,13 @@ last_valid_uid = 5000
 auth_mechanisms = plain login
 
 passdb {
-    driver = sql
-    args = /etc/dovecot/dovecot-sql.conf
+    driver = static
+    args = password=temppass
 }
 
 userdb {
-    driver = sql
-    args = /etc/dovecot/dovecot-sql.conf
+    driver = static
+    args = uid=vmail gid=vmail home=/data/vmail/%d/%n
 }
 
 service auth {
@@ -187,14 +199,7 @@ filename = "/data/log/rspamd.log";
 level = "info";
 EOF
 
-# Generate self-signed certificate if not exists
-if [ ! -f /data/ssl/cert.pem ]; then
-    echo "Generating self-signed certificate..."
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout /data/ssl/key.pem \
-        -out /data/ssl/cert.pem \
-        -subj "/C=US/ST=State/L=City/O=Organization/CN=${HOSTNAME:-mail.example.com}"
-fi
+# SSL certificates already generated above
 
 # Configure email API transport if needed
 if [ "${SMTP_MODE}" = "api" ]; then
